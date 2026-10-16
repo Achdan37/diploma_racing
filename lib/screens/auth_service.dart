@@ -22,11 +22,11 @@ class AuthUser {
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> j) => AuthUser(
-        id: j['id'],
-        name: j['name'] ?? '',
-        username: j['username'],
-        role: j['role'],
-      );
+    id: j['id'],
+    name: j['name'] ?? '',
+    username: j['username'],
+    role: j['role'],
+  );
 }
 
 class AuthResult {
@@ -39,7 +39,7 @@ class AuthResult {
 
 class AuthService {
   // Emulator Android: 10.0.2.2 | HP asli: IP laptop di WiFi yang sama, mis. http://192.168.1.10:3000
-  static const String baseUrl = 'http://10.0.2.2:3000';
+  static const String baseUrl = 'http://localhost:3000';
 
   static const _storage = FlutterSecureStorage();
 
@@ -72,8 +72,8 @@ class AuthService {
       return const AuthResult.failure('Koneksi timeout, coba lagi');
     } on SocketException {
       return const AuthResult.failure('Tidak dapat terhubung ke server');
-    } catch (_) {
-      return const AuthResult.failure('Terjadi kesalahan tak terduga');
+    } catch (e) {
+      return AuthResult.failure('Error: $e');
     }
   }
 
