@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'config.dart';  // ← TAMBAHKAN INI
 
 class AuthUser {
   final int id;
@@ -38,8 +39,9 @@ class AuthResult {
 }
 
 class AuthService {
-  // Emulator Android: 10.0.2.2 | HP asli: IP laptop di WiFi yang sama, mis. http://192.168.1.10:3000
-  static const String baseUrl = 'http://localhost:3000';
+  // URL akan dibaca otomatis dari file .env
+  // Pastikan file .env sudah ada dan berisi API_URL
+  final String baseUrl = AppConfig.baseUrl;  // ← GANTI INI
 
   static const _storage = FlutterSecureStorage();
 
