@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:telemetri_juken5/models/model.dart';
 
-import '../data/app_state.dart';
+import '../state/app_state.dart';
 import 'history_screen.dart';
 import 'profile_screen.dart';
 

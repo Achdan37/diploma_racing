@@ -1,6 +1,3 @@
-// pubspec.yaml -> dependencies:
-//   http: ^1.2.0
-//   flutter_secure_storage: ^9.2.2
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -8,39 +5,10 @@ import 'dart:io';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
-class AuthUser {
-  final int id;
-  final String name;
-  final String username;
-  final String role; // 'mechanic' | 'owner' (sesuai ENUM di database)
-
-  AuthUser({
-    required this.id,
-    required this.name,
-    required this.username,
-    required this.role,
-  });
-
-  factory AuthUser.fromJson(Map<String, dynamic> j) => AuthUser(
-    id: j['id'],
-    name: j['name'] ?? '',
-    username: j['username'],
-    role: j['role'],
-  );
-}
-
-class AuthResult {
-  final AuthUser? user;
-  final String? error;
-  const AuthResult.success(this.user) : error = null;
-  const AuthResult.failure(this.error) : user = null;
-  bool get ok => user != null;
-}
+import '../core/config/app_config.dart';
+import '../models/model.dart'; // Pastikan ini diaktifkan
 
 class AuthService {
-  // Emulator Android: 10.0.2.2 | HP asli: IP laptop di WiFi yang sama, mis. http://192.168.1.10:3000
-  static const String baseUrl = 'http://localhost:3000';
-
   static const _storage = FlutterSecureStorage();
 
   Future<AuthResult> login({
@@ -51,7 +19,7 @@ class AuthService {
     try {
       final res = await http
           .post(
-            Uri.parse('$baseUrl/api/login'),
+            Uri.parse('${AppConfig.baseUrl}/api/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'username': username,

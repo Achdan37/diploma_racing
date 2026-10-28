@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'auth_service.dart';
+
+import '../services/auth_service.dart';
+import '../state/app_state.dart';
 import 'mechanic_home_screen.dart';
 import 'owner_home_screen.dart';
 
@@ -60,8 +62,16 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // Catat siapa yang login supaya halaman lain tahu role dan namanya
+    final user = result.user!;
+    AppState.instance.login(
+      role: user.role == 'owner' ? 'Owner' : 'Mekanik',
+      name: user.name,
+      username: user.username,
+    );
+
     // Navigasi berdasarkan role dari database, bukan dari pilihan di UI
-    final Widget target = result.user!.role == 'owner'
+    final Widget target = user.role == 'owner'
         ? const OwnerHomeScreen()
         : const MechanicHomeScreen();
 
@@ -75,13 +85,16 @@ class _LoginScreenState extends State<LoginScreen> {
     final selected = selectedRole == label;
     return Expanded(
       child: OutlinedButton.icon(
-        onPressed: isLoading ? null : () => setState(() => selectedRole = label),
+        onPressed: isLoading
+            ? null
+            : () => setState(() => selectedRole = label),
         icon: Icon(icon),
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor:
-              selected ? Colors.red.shade700 : const Color(0xFF202329),
+          backgroundColor: selected
+              ? Colors.red.shade700
+              : const Color(0xFF202329),
           side: BorderSide(color: selected ? Colors.red : Colors.white24),
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -170,8 +183,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     enabled: !isLoading,
                     textInputAction: TextInputAction.next,
                     style: const TextStyle(color: Colors.white),
-                    decoration:
-                        _decoration('Masukkan username', Icons.person_outline),
+                    decoration: _decoration(
+                      'Masukkan username',
+                      Icons.person_outline,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   const Text(
@@ -211,8 +226,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline,
-                              color: Colors.redAccent, size: 20),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
