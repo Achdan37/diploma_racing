@@ -12,7 +12,7 @@ class AuthUser {
   final int id;
   final String name;
   final String username;
-  final String role; // 'mechanic' | 'owner' (sesuai ENUM di database)
+  final String role; // 'mechanic' | 'owner'
 
   AuthUser({
     required this.id,
@@ -39,25 +39,23 @@ class AuthResult {
 
 class AuthService {
   // Emulator Android: 10.0.2.2 | HP asli: IP laptop di WiFi yang sama, mis. http://192.168.1.10:3000
-  static const String baseUrl = 'http://localhost:3000';
+  // static const String baseUrl = 'http://localhost:3000';
+  // static const String baseUrl = 'http://192.168.1.10:3000';
+  static const String baseUrl = 'http://127.0.0.1:3000';
 
   static const _storage = FlutterSecureStorage();
 
+  /// Login hanya butuh username + password. Role ditentukan oleh server.
   Future<AuthResult> login({
     required String username,
     required String password,
-    required String role,
   }) async {
     try {
       final res = await http
           .post(
             Uri.parse('$baseUrl/api/login'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'username': username,
-              'password': password,
-              'role': role,
-            }),
+            body: jsonEncode({'username': username, 'password': password}),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -74,6 +72,72 @@ class AuthService {
       return const AuthResult.failure('Tidak dapat terhubung ke server');
     } catch (e) {
       return AuthResult.failure('Error: $e');
+    }
+  }
+
+  /// Ganti password. Mengembalikan null jika berhasil, atau pesan error.
+  Future<String?> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final token = await getToken();
+      if (token == null) return 'Sesi habis, silakan login ulang';
+
+      final res = await http
+          .put(
+            Uri.parse('$baseUrl/api/change-password'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'oldPassword': oldPassword,
+              'newPassword': newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+
+      if (res.statusCode == 200) return null;
+      return data['message'] ?? 'Gagal mengganti password';
+    } on TimeoutException {
+      return 'Koneksi timeout, coba lagi';
+    } on SocketException {
+      return 'Tidak dapat terhubung ke server';
+    } catch (e) {
+      return 'Error: $e';
+    }
+  }
+
+  /// Simpan nama ke database. Mengembalikan null jika berhasil, atau pesan error.
+  Future<String?> updateProfile({required String username}) async {
+    try {
+      final token = await getToken();
+      if (token == null) return 'Sesi habis, silakan login ulang';
+
+      final res = await http
+          .put(
+            Uri.parse('$baseUrl/api/profile'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'username': username}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+
+      if (res.statusCode == 200) return null;
+      return data['message'] ?? 'Gagal memperbarui profil';
+    } on TimeoutException {
+      return 'Koneksi timeout, coba lagi';
+    } on SocketException {
+      return 'Tidak dapat terhubung ke server';
+    } catch (e) {
+      return 'Error: $e';
     }
   }
 

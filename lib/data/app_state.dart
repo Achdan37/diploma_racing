@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 class MotorItem {
   final String id;
   String name;
-  String plate;
+  String plate; // tidak dipakai di tabel motors, dipertahankan agar layar lain tidak error
+  int type; // kolom "type" di tabel motors
 
   MotorItem({
     required this.id,
     required this.name,
     this.plate = '',
+    this.type = 0,
   });
 }
 
@@ -93,35 +95,13 @@ class AppState extends ChangeNotifier {
   String currentName = 'Achdan';
   String currentUsername = 'mechanic';
 
-  final List<MotorItem> motors = [
-    MotorItem(
-      id: 'motor-1',
-      name: 'Honda CBR 150R',
-      plate: 'AE 1234 XX',
-    ),
-    MotorItem(
-      id: 'motor-2',
-      name: 'Yamaha R15',
-      plate: 'AE 5678 YY',
-    ),
-  ];
+  // Diisi dari server (lihat MotorService.fetchMotors)
+  final List<MotorItem> motors = [];
 
   final List<SessionRecord> sessions = [];
 
-  final List<MechanicAccount> accounts = [
-    MechanicAccount(
-      id: 'account-1',
-      name: 'Mechanic 1',
-      username: 'mechanic1',
-      password: '123456',
-    ),
-    MechanicAccount(
-      id: 'account-2',
-      name: 'Mechanic 2',
-      username: 'mechanic2',
-      password: '123456',
-    ),
-  ];
+  // Diisi dari server (lihat AccountService.fetchAccounts)
+  final List<MechanicAccount> accounts = [];
 
   TelemetrySample get telemetry {
     return TelemetrySample(
@@ -148,8 +128,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateProfile(String name) {
-    currentName = name;
+  void updateProfile(String username) {
+    currentUsername = username;
     notifyListeners();
   }
 
@@ -178,9 +158,7 @@ class AppState extends ChangeNotifier {
   }
 
   void markSessionSynced(String id) {
-    final index = sessions.indexWhere(
-      (session) => session.id == id,
-    );
+    final index = sessions.indexWhere((session) => session.id == id);
 
     if (index != -1) {
       sessions[index].synced = true;
@@ -194,9 +172,7 @@ class AppState extends ChangeNotifier {
   }
 
   void toggleAccount(String id) {
-    final index = accounts.indexWhere(
-      (account) => account.id == id,
-    );
+    final index = accounts.indexWhere((account) => account.id == id);
 
     if (index != -1) {
       accounts[index].active = !accounts[index].active;
@@ -204,13 +180,8 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void resetAccountPassword(
-    String id,
-    String password,
-  ) {
-    final index = accounts.indexWhere(
-      (account) => account.id == id,
-    );
+  void resetAccountPassword(String id, String password) {
+    final index = accounts.indexWhere((account) => account.id == id);
 
     if (index != -1) {
       accounts[index].password = password;

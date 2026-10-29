@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../data/app_state.dart';
 import 'auth_service.dart';
 import 'mechanic_home_screen.dart';
 import 'owner_home_screen.dart';
@@ -18,10 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool obscurePassword = true;
   bool isLoading = false;
   String? errorMessage;
-
-  // Label di UI -> nilai ENUM di database
-  String selectedRole = 'Mekanik';
-  String get roleValue => selectedRole == 'Owner' ? 'owner' : 'mechanic';
 
   @override
   void dispose() {
@@ -44,10 +42,10 @@ class _LoginScreenState extends State<LoginScreen> {
       errorMessage = null;
     });
 
+    // Role tidak dikirim lagi: server yang menentukan dari database
     final result = await _authService.login(
       username: username,
       password: password,
-      role: roleValue,
     );
 
     if (!mounted) return;
@@ -60,7 +58,15 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Navigasi berdasarkan role dari database, bukan dari pilihan di UI
+    // Isi AppState dengan data akun yang login, supaya halaman profil benar
+    final user = result.user!;
+    AppState.instance.login(
+      role: user.role == 'owner' ? 'Owner' : 'Mekanik',
+      name: user.name,
+      username: user.username,
+    );
+
+    // Navigasi otomatis berdasarkan role dari database
     final Widget target = result.user!.role == 'owner'
         ? const OwnerHomeScreen()
         : const MechanicHomeScreen();
@@ -68,27 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => target),
-    );
-  }
-
-  Widget _roleButton(String label, IconData icon) {
-    final selected = selectedRole == label;
-    return Expanded(
-      child: OutlinedButton.icon(
-        onPressed: isLoading ? null : () => setState(() => selectedRole = label),
-        icon: Icon(icon),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          backgroundColor:
-              selected ? Colors.red.shade700 : const Color(0xFF202329),
-          side: BorderSide(color: selected ? Colors.red : Colors.white24),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
     );
   }
 
@@ -148,19 +133,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    'Login sebagai',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _roleButton('Mekanik', Icons.build_rounded),
-                      const SizedBox(width: 12),
-                      _roleButton('Owner', Icons.admin_panel_settings),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
                     'Username',
                     style: TextStyle(color: Colors.white70, fontSize: 14),
                   ),
@@ -170,8 +142,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     enabled: !isLoading,
                     textInputAction: TextInputAction.next,
                     style: const TextStyle(color: Colors.white),
-                    decoration:
-                        _decoration('Masukkan username', Icons.person_outline),
+                    decoration: _decoration(
+                      'Masukkan username',
+                      Icons.person_outline,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   const Text(
@@ -211,8 +185,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline,
-                              color: Colors.redAccent, size: 20),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
