@@ -128,8 +128,10 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateProfile(String username) {
-    currentUsername = username;
+  // Profil bisa mengubah nama dan/atau username
+  void updateProfile({String? name, String? username}) {
+    if (name != null) currentName = name;
+    if (username != null) currentUsername = username;
     notifyListeners();
   }
 
@@ -166,6 +168,13 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  void setAccounts(List<MechanicAccount> list) {
+    accounts
+      ..clear()
+      ..addAll(list);
+    notifyListeners();
+  }
+
   void addAccount(MechanicAccount account) {
     accounts.add(account);
     notifyListeners();
@@ -178,6 +187,11 @@ class AppState extends ChangeNotifier {
       accounts[index].active = !accounts[index].active;
       notifyListeners();
     }
+  }
+
+  void deleteAccount(String id) {
+    accounts.removeWhere((account) => account.id == id);
+    notifyListeners();
   }
 
   void resetAccountPassword(String id, String password) {

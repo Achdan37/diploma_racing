@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'config.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -21,7 +22,7 @@ class MotorService {
       final token = await _auth.getToken();
       if (token == null) return 'Sesi habis, silakan login ulang';
 
-      final uri = Uri.parse('${AuthService.baseUrl}$path');
+      final uri = Uri.parse('${AppConfig.baseUrl}$path');
       final headers = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',

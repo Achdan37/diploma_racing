@@ -15,6 +15,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final app = AppState.instance;
   final _authService = AuthService();
 
+  late TextEditingController nameController;
   late TextEditingController usernameController;
 
   final oldPasswordController = TextEditingController();
@@ -30,13 +31,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    nameController = TextEditingController(text: app.currentName);
     usernameController = TextEditingController(text: app.currentUsername);
   }
 
-  // ---------- Simpan username ----------
+  // ---------- Simpan profil (nama & username) ----------
   Future<void> saveProfile() async {
+    final name = nameController.text.trim();
     final username = usernameController.text.trim();
 
+    if (name.isEmpty) {
+      showMessage('Nama wajib diisi.');
+      return;
+    }
+    if (name.length > 45) {
+      showMessage('Nama maksimal 45 karakter.');
+      return;
+    }
     if (username.length < 3) {
       showMessage('Username minimal 3 karakter.');
       return;
@@ -46,8 +57,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    final nameChanged = name != app.currentName;
+    final usernameChanged = username != app.currentUsername;
+
+    if (!nameChanged && !usernameChanged) {
+      showMessage('Belum ada perubahan.');
+      return;
+    }
+
     setState(() => isSavingProfile = true);
-    final error = await _authService.updateProfile(username: username);
+    final error = await _authService.updateProfile(
+      name: nameChanged ? name : null,
+      username: usernameChanged ? username : null,
+    );
     if (!mounted) return;
     setState(() => isSavingProfile = false);
 
@@ -56,9 +78,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    // perbarui tampilan lokal (header ikut berubah)
-    setState(() => app.updateProfile(username));
-    showMessage('Username berhasil diperbarui.');
+    if (usernameChanged) {
+      await _logoutAfterChange(
+        'Profil berhasil diperbarui. Silakan login dengan username baru.',
+      );
+      return;
+    }
+
+    // Hanya nama yang berubah: tetap login, perbarui judul di atas avatar
+    app.updateProfile(name: name);
+    setState(() {});
+    showMessage('Nama berhasil diperbarui.');
   }
 
   // ---------- Ganti password (wajib password lama) ----------
@@ -104,7 +134,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     oldPasswordController.clear();
     passwordController.clear();
     confirmController.clear();
-    showMessage('Password berhasil diganti.');
+    await _logoutAfterChange(
+      'Password berhasil diganti. Silakan login dengan password baru.',
+    );
+  }
+
+  // ---------- Logout otomatis setelah ganti username / password ----------
+  Future<void> _logoutAfterChange(String message) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    await _authService.logout(); // hapus token
+
+    if (!mounted) return;
+
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   // ---------- Logout ----------
@@ -121,10 +169,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Logout',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Logout', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -144,19 +189,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  @override
-  void dispose() {
-    usernameController.dispose();
-    oldPasswordController.dispose();
-    passwordController.dispose();
-    confirmController.dispose();
-    super.dispose();
-  }
+@override
+void dispose() {
+  nameController.dispose();
+  usernameController.dispose();
+  oldPasswordController.dispose();
+  passwordController.dispose();
+  confirmController.dispose();
+  super.dispose();
+}
 
   Widget _passwordField({
     required TextEditingController controller,
@@ -194,17 +239,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           children: [
             // ----- Header -----
-            const CircleAvatar(
-              radius: 45,
-              child: Icon(Icons.person, size: 48),
-            ),
+            const CircleAvatar(radius: 45, child: Icon(Icons.person, size: 48)),
             const SizedBox(height: 12),
             Text(
-              '@${app.currentUsername}',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              app.currentName.trim().isEmpty
+                  ? app.currentUsername
+                  : app.currentName,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             Container(
@@ -224,12 +265,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 28),
 
-            // ----- Ubah username -----
+            // ----- Ubah profil -----
+            TextField(
+              controller: nameController,
+              enabled: !isSavingProfile,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Nama',
+                prefixIcon: Icon(Icons.badge_outlined),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: usernameController,
               enabled: !isSavingProfile,
               decoration: const InputDecoration(
                 labelText: 'Username',
+                helperText: 'Mengubah username akan membuat Anda logout otomatis.',
                 prefixIcon: Icon(Icons.alternate_email),
                 border: OutlineInputBorder(),
               ),

@@ -118,31 +118,60 @@ app.put("/api/change-password", auth, async (req, res) => {
   }
 });
 
-// UPDATE PROFIL: simpan nama user yang sedang login
+// UPDATE PROFIL: ubah nama dan/atau username user yang sedang login
 app.put("/api/profile", auth, async (req, res) => {
   try {
-    const username = (req.body.username || "").trim();
+    const hasName = req.body.name !== undefined;
+    const hasUsername = req.body.username !== undefined;
 
-    if (!username) {
-      return res.status(400).json({ message: "Username tidak boleh kosong" });
-    }
-    if (username.length < 3 || username.length > 50) {
-      return res
-        .status(400)
-        .json({ message: "Username harus 3-50 karakter" });
-    }
-    if (!/^[A-Za-z0-9_.]+$/.test(username)) {
-      return res.status(400).json({
-        message: "Username hanya boleh huruf, angka, titik, dan underscore",
-      });
+    if (!hasName && !hasUsername) {
+      return res.status(400).json({ message: "Tidak ada data yang diubah" });
     }
 
-    await db.query("UPDATE users SET username = ? WHERE id = ?", [
-      username,
-      req.user.id,
-    ]);
+    const fields = [];
+    const values = [];
 
-    res.json({ message: "Username berhasil diperbarui", username });
+    if (hasName) {
+      const name = String(req.body.name || "").trim();
+      if (!name) {
+        return res.status(400).json({ message: "Nama tidak boleh kosong" });
+      }
+      if (name.length > 45) {
+        return res.status(400).json({ message: "Nama maksimal 45 karakter" });
+      }
+      fields.push("name = ?");
+      values.push(name);
+    }
+
+    if (hasUsername) {
+      const username = String(req.body.username || "").trim();
+      if (!username) {
+        return res.status(400).json({ message: "Username tidak boleh kosong" });
+      }
+      if (username.length < 3 || username.length > 50) {
+        return res.status(400).json({ message: "Username harus 3-50 karakter" });
+      }
+      if (!/^[A-Za-z0-9_.]+$/.test(username)) {
+        return res.status(400).json({
+          message: "Username hanya boleh huruf, angka, titik, dan underscore",
+        });
+      }
+      fields.push("username = ?");
+      values.push(username);
+    }
+
+    values.push(req.user.id);
+    await db.query(`UPDATE users SET ${fields.join(", ")} WHERE id = ?`, values);
+
+    const [rows] = await db.query(
+      "SELECT name, username FROM users WHERE id = ?",
+      [req.user.id],
+    );
+    res.json({
+      message: "Profil berhasil diperbarui",
+      name: rows[0].name,
+      username: rows[0].username,
+    });
   } catch (e) {
     if (e.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ message: "Username sudah dipakai" });
@@ -152,7 +181,11 @@ app.put("/api/profile", auth, async (req, res) => {
   }
 });
 
-// Ambil semua motor milik user yang login
+// ================= DATA MOTOR =================
+// Motor dipakai bersama: semua user yang login melihat dan mengelola semua motor.
+// Kolom user_id hanya mencatat siapa yang menambahkan.
+
+// Ambil semua motor
 app.get("/api/motors", auth, async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -353,6 +386,64 @@ app.put("/api/accounts/:id/password", auth, requireOwner, async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Kesalahan server" });
+  }
+});
+
+// HAPUS PERMANEN akun mekanik beserta riwayat sesinya.
+app.delete("/api/accounts/:id", auth, requireOwner, async (req, res) => {
+  const id = req.params.id;
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [found] = await conn.query(
+      "SELECT id FROM users WHERE id = ? AND role = 'mekanik'",
+      [id],
+    );
+    if (found.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ message: "Akun tidak ditemukan" });
+    }
+
+    // Cari semua tabel yang punya foreign key ke sessions, lalu hapus
+    // baris-barisnya yang terkait dengan sesi milik akun ini.
+    const [refs] = await conn.query(
+      `SELECT TABLE_NAME AS t, COLUMN_NAME AS c
+         FROM information_schema.KEY_COLUMN_USAGE
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND REFERENCED_TABLE_NAME = 'sessions'
+          AND REFERENCED_COLUMN_NAME = 'id'`,
+    );
+    for (const { t, c } of refs) {
+      await conn.query(
+        `DELETE FROM \`${t}\` WHERE \`${c}\` IN (SELECT id FROM sessions WHERE user_id = ?)`,
+        [id],
+      );
+    }
+
+    await conn.query("DELETE FROM sessions WHERE user_id = ?", [id]);
+    await conn.query("UPDATE motors SET user_id = ? WHERE user_id = ?", [
+      req.user.id,
+      id,
+    ]);
+    await conn.query("DELETE FROM users WHERE id = ? AND role = 'mekanik'", [
+      id,
+    ]);
+
+    await conn.commit();
+    res.json({ message: "Akun berhasil dihapus" });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    if (e.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(409).json({
+        message:
+          "Akun tidak bisa dihapus karena masih dipakai data lain. Nonaktifkan saja.",
+      });
+    }
+    console.error(e);
+    res.status(500).json({ message: "Kesalahan server" });
+  } finally {
+    conn.release();
   }
 });
 

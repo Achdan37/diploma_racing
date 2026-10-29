@@ -81,12 +81,66 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void addAccount() {
+  // Gaya field yang seragam (border selalu terlihat)
+  InputDecoration _fieldDecoration({
+    required String label,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+
+    OutlineInputBorder border(Color color, [double width = 1]) {
+      return OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color, width: width),
+      );
+    }
+
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: scheme.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      border: border(scheme.outline),
+      enabledBorder: border(scheme.outline),
+      disabledBorder: border(scheme.outlineVariant),
+      focusedBorder: border(scheme.primary, 2),
+      errorBorder: border(scheme.error),
+      focusedErrorBorder: border(scheme.error, 2),
+    );
+  }
+
+  Widget _errorText(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.error,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+
+  Widget _savingIndicator() {
+    return const SizedBox(
+      width: 18,
+      height: 18,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    );
+  }
+
+  // ---------- Tambah akun ----------
+  void showAccountForm() {
     final nameController = TextEditingController();
     final usernameController = TextEditingController();
     final passwordController = TextEditingController();
 
     bool saving = false;
+    bool obscure = true;
     String? errorText;
 
     showDialog(
@@ -100,10 +154,25 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
               final username = usernameController.text.trim();
               final password = passwordController.text;
 
-              if (name.isEmpty || username.isEmpty || password.length < 6) {
+              if (name.isEmpty || username.isEmpty) {
                 setDialogState(
-                  () => errorText =
-                      'Isi data dengan benar. Password minimal 6 karakter.',
+                  () => errorText = 'Nama dan username wajib diisi.',
+                );
+                return;
+              }
+              if (name.length > 45) {
+                setDialogState(() => errorText = 'Nama maksimal 45 karakter.');
+                return;
+              }
+              if (username.length > 50) {
+                setDialogState(
+                  () => errorText = 'Username maksimal 50 karakter.',
+                );
+                return;
+              }
+              if (password.length < 6) {
+                setDialogState(
+                  () => errorText = 'Password minimal 6 karakter.',
                 );
                 return;
               }
@@ -130,53 +199,65 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
               }
 
               Navigator.pop(dialogContext);
-              if (mounted) showMessage('Akun berhasil ditambahkan.');
+              if (mounted) {
+                showMessage('Akun berhasil ditambahkan.');
+              }
             }
 
             return AlertDialog(
               title: const Text('Tambah Akun Mekanik'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      enabled: !saving,
-                      decoration: const InputDecoration(
-                        labelText: 'Nama',
-                        border: OutlineInputBorder(),
+              content: SizedBox(
+                width: 360,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: nameController,
+                        enabled: !saving,
+                        textInputAction: TextInputAction.next,
+                        decoration: _fieldDecoration(
+                          label: 'Nama',
+                          icon: Icons.badge_outlined,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: usernameController,
-                      enabled: !saving,
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        border: OutlineInputBorder(),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: usernameController,
+                        enabled: !saving,
+                        textInputAction: TextInputAction.next,
+                        decoration: _fieldDecoration(
+                          label: 'Username',
+                          icon: Icons.alternate_email,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: passwordController,
-                      enabled: !saving,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: passwordController,
+                        enabled: !saving,
+                        obscureText: obscure,
+                        decoration: _fieldDecoration(
+                          label: 'Password',
+                          icon: Icons.lock,
+                          suffixIcon: IconButton(
+                            onPressed: () =>
+                                setDialogState(() => obscure = !obscure),
+                            icon: Icon(
+                              obscure
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    if (errorText != null) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        errorText!,
-                        style:
-                            const TextStyle(color: Colors.red, fontSize: 13),
-                      ),
+                      if (errorText != null) _errorText(errorText!),
                     ],
-                  ],
+                  ),
                 ),
               ),
+              actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
               actions: [
                 TextButton(
                   onPressed: saving ? null : () => Navigator.pop(dialogContext),
@@ -184,13 +265,7 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
                 ),
                 ElevatedButton(
                   onPressed: saving ? null : save,
-                  child: saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Simpan'),
+                  child: saving ? _savingIndicator() : const Text('Simpan'),
                 ),
               ],
             );
@@ -200,10 +275,9 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
     );
   }
 
-  void resetPassword(MechanicAccount account) {
-    final controller = TextEditingController();
-
-    bool saving = false;
+  // ---------- Hapus ----------
+  void deleteAccount(MechanicAccount account) {
+    bool deleting = false;
     String? errorText;
 
     showDialog(
@@ -212,75 +286,60 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            Future<void> reset() async {
-              if (controller.text.length < 6) {
-                setDialogState(
-                  () => errorText = 'Password minimal 6 karakter.',
-                );
-                return;
-              }
-
+            Future<void> confirmDelete() async {
               setDialogState(() {
-                saving = true;
+                deleting = true;
                 errorText = null;
               });
 
-              final error = await _service.resetPassword(
-                account,
-                newPassword: controller.text,
-              );
+              final error = await _service.deleteAccount(account);
 
               if (!dialogContext.mounted) return;
 
               if (error != null) {
                 setDialogState(() {
-                  saving = false;
+                  deleting = false;
                   errorText = error;
                 });
                 return;
               }
 
               Navigator.pop(dialogContext);
-              if (mounted) showMessage('Password berhasil direset.');
+              if (mounted) showMessage('Akun berhasil dihapus.');
             }
 
             return AlertDialog(
-              title: Text('Reset Password ${account.name}'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: controller,
-                    enabled: !saving,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password baru',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  if (errorText != null) ...[
-                    const SizedBox(height: 12),
+              title: const Text('Hapus Akun?'),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      errorText!,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                      'Akun ${_displayName(account)} (@${account.username}) '
+                      'akan dihapus permanen beserta seluruh riwayat sesinya. '
+                      'Motor yang ditambahkan akun ini tetap ada. '
+                      'Tindakan ini tidak bisa dibatalkan.\n\n'
+                      'Kalau hanya ingin mencabut akses sementara, '
+                      'gunakan saklar Status Akun untuk menonaktifkan.',
                     ),
+                    if (errorText != null) _errorText(errorText!),
                   ],
-                ],
+                ),
               ),
               actions: [
                 TextButton(
-                  onPressed: saving ? null : () => Navigator.pop(dialogContext),
+                  onPressed: deleting ? null : () => Navigator.pop(dialogContext),
                   child: const Text('Batal'),
                 ),
                 ElevatedButton(
-                  onPressed: saving ? null : reset,
-                  child: saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Reset'),
+                  onPressed: deleting ? null : confirmDelete,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Theme.of(context).colorScheme.onError,
+                  ),
+                  child: deleting ? _savingIndicator() : const Text('Hapus'),
                 ),
               ],
             );
@@ -293,6 +352,11 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
   Future<void> toggleAccount(MechanicAccount account) async {
     final error = await _service.toggleAccount(account);
     if (error != null && mounted) showMessage(error);
+  }
+
+  // Kalau nama kosong di database, tampilkan username
+  String _displayName(MechanicAccount account) {
+    return account.name.trim().isEmpty ? account.username : account.name;
   }
 
   Widget _buildBody(List<MechanicAccount> accounts) {
@@ -326,6 +390,8 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
       return const Center(child: Text('Belum ada akun mekanik.'));
     }
 
+    final errorColor = Theme.of(context).colorScheme.error;
+
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 90),
       itemCount: accounts.length,
@@ -342,7 +408,7 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
                     account.active ? Icons.person : Icons.person_off,
                   ),
                 ),
-                title: Text(account.name),
+                title: Text(_displayName(account)),
                 subtitle: Text(
                   '@${account.username}\n'
                   '${account.active ? 'Aktif' : 'Nonaktif'}',
@@ -354,12 +420,19 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
                 value: account.active,
                 onChanged: (_) => toggleAccount(account),
               ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => resetPassword(account),
-                  icon: const Icon(Icons.lock_reset),
-                  label: const Text('Reset Password'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => deleteAccount(account),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Hapus Akun'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: errorColor,
+                      side: BorderSide(color: errorColor),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -388,7 +461,7 @@ class _ManageAccountScreenState extends State<ManageAccountScreen> {
             ],
           ),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: addAccount,
+            onPressed: () => showAccountForm(),
             icon: const Icon(Icons.person_add),
             label: const Text('Tambah Akun'),
           ),
